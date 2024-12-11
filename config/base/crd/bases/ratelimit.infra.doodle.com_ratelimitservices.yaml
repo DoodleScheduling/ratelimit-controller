@@ -8294,7 +8294,7 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
-              rulesSelector:
+              ruleSelector:
                 description: DescriptorSelector defines a selector to select ratelimit
                   rules associated with this service
                 properties:

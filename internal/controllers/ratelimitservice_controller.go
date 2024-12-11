@@ -91,7 +91,7 @@ func (r *RateLimitServiceReconciler) requestsForChangeBySelector(ctx context.Con
 
 	var reqs []reconcile.Request
 	for _, service := range list.Items {
-		labelSel, err := metav1.LabelSelectorAsSelector(service.Spec.RulesSelector)
+		labelSel, err := metav1.LabelSelectorAsSelector(service.Spec.RuleSelector)
 		if err != nil {
 			r.Log.Error(err, "can not select resourceSelector selectors")
 			continue
@@ -539,7 +539,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 
 func (r *RateLimitServiceReconciler) extendserviceWithRateLimitRules(ctx context.Context, service infrav1beta1.RateLimitService) (infrav1beta1.RateLimitService, []infrav1beta1.RateLimitRule, error) {
 	var specifications infrav1beta1.RateLimitRuleList
-	rateLimitRuleSelector, err := metav1.LabelSelectorAsSelector(service.Spec.RulesSelector)
+	rateLimitRuleSelector, err := metav1.LabelSelectorAsSelector(service.Spec.RuleSelector)
 	if err != nil {
 		return service, nil, err
 	}

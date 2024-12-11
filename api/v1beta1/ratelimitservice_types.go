@@ -59,7 +59,7 @@ type RateLimitServiceSpec struct {
 	Suspend bool `json:"suspend,omitempty"`
 
 	// DescriptorSelector defines a selector to select ratelimit rules associated with this service
-	RulesSelector *metav1.LabelSelector `json:"rulesSelector,omitempty"`
+	RuleSelector *metav1.LabelSelector `json:"ruleSelector,omitempty"`
 
 	// NamespaceSelector defines a selector to select namespaces where rules are looked up
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`

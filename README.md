@@ -7,7 +7,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/DoodleScheduling/ratelimit-controller/badge.svg?branch=master)](https://coveralls.io/github/DoodleScheduling/ratelimit-controller?branch=master)
 [![license](https://img.shields.io/github/license/DoodleScheduling/ratelimit-controller.svg)](https://github.com/DoodleScheduling/ratelimit-controller/blob/master/LICENSE)
 
-This controller manages deployments of [envoyproxy/ratelimit](github.com/envoyproxy/ratelimit) and its ruleset.
+This controller manages deployments of [envoyproxy/ratelimit](https://github.com/envoyproxy/ratelimit) and its ruleset.
 The controller can lookup `RateLimitRule` references and hook them up with a `RateLimitService`.
 Each `RateLimitService` is a managed envoyproxy/ratelimit deployment which includes the related rules.
 
@@ -21,15 +21,15 @@ kind: RateLimitService
 metadata:
   name: default
 spec:
-  rulesSelector:
+  ruleSelector:
     matchLabels: {}
 ```
 
 `matchLabels: {}` will include all of them in the same namespace as the service.
 By using match labels or expressions it can be configured what rules should be included in the service.
-If no `rulesSelector` on the service is configured no rules will be included.
+If no `ruleSelector` on the service is configured no rules will be included.
 
-Similar to the `rulesSelector` it is possible to match rules cross namespace by using `spec.namespaceSelector`. 
+Similar to the `ruleSelector` it is possible to match rules cross namespace by using `spec.namespaceSelector`. 
 By default a `RateLimitService` only looks up rules from the same namespace but with a namespace selector this behaviour can be changed.
 Using `namespaceSelector.matchLabels: {}` will lookup rules across all namespaces.
 
@@ -71,7 +71,7 @@ kind: RateLimitService
 metadata: 
   name: ratelimit
 spec:
-  rulesSelector: {}
+  ruleSelector: {}
   deploymentTemplate:
     spec:
       template:

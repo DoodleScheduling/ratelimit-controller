@@ -283,8 +283,8 @@ func (in *RateLimitServiceSpec) DeepCopyInto(out *RateLimitServiceSpec) {
 		*out = new(DeploymentTemplate)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.RulesSelector != nil {
-		in, out := &in.RulesSelector, &out.RulesSelector
+	if in.RuleSelector != nil {
+		in, out := &in.RuleSelector, &out.RuleSelector
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
