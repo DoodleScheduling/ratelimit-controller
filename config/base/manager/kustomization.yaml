@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namePrefix: ratelimit-
+resources:
+- deployment.yaml
+- sa.yaml
+images:
+- name: ghcr.io/doodlescheduling/ratelimit-controller
+  newTag: v2.2.0

@@ -1,0 +1,25 @@
+domain: doodle.com
+layout:
+- go.kubebuilder.io/v3
+projectName: ratelimit-controller
+repo: github.com/doodlescheduling/ratelimit-controller
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: doodle.com
+  group: ratelimit.infra.doodle.com
+  kind: RateLimitService
+  path: github.com/doodlescheduling/ratelimit-controller/api/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: doodle.com
+  group: ratelimit.infra.doodle.com
+  kind: RateLimitRule
+  path: github.com/doodlescheduling/ratelimit-controller/api/v1beta1
+  version: v1beta1
+version: "3"

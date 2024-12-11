@@ -1,0 +1,7 @@
+apiVersion: ratelimit.infra.doodle.com/v1beta1
+kind: SwaggerSpecification
+metadata:
+  name: services
+spec:
+  definitionSelector:
+    matchLabels: {}

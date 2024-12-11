@@ -1,0 +1,14 @@
+apiVersion: v2
+appVersion: v0.0.0
+description: ratelimit controller
+home: https://github.com/DoodleScheduling/ratelimit-controller
+maintainers:
+- name: devops
+  email: devops@doodle.com
+keywords:
+- ratelimit-controller
+- ratelimit-ui
+name: ratelimit-controller
+sources:
+- https://github.com/DoodleScheduling/ratelimit-controller
+version: 0.0.0
