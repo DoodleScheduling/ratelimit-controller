@@ -183,7 +183,9 @@ func (r *RateLimitServiceReconciler) rulesToDescriptorSet(rules []infrav1beta1.R
 		var lastDescriptor *YamlDescriptor
 
 		if _, ok := domains[rule.Spec.Domain]; !ok {
-			domains[rule.Spec.Domain] = &YamlRoot{}
+			domains[rule.Spec.Domain] = &YamlRoot{
+				Domain: rule.Spec.Domain,
+			}
 		}
 
 		for _, descriptor := range rule.Spec.Descriptors {
