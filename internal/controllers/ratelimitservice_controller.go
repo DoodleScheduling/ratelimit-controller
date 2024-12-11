@@ -239,6 +239,19 @@ func (r *RateLimitServiceReconciler) rulesToDescriptorSet(rules []infrav1beta1.R
 	return domains
 }
 
+func isOwner(owner, owned metav1.Object) bool {
+	runtimeObj, ok := (owner).(runtime.Object)
+	if !ok {
+		return false
+	}
+	for _, ownerRef := range owned.GetOwnerReferences() {
+		if ownerRef.Name == owner.GetName() && ownerRef.UID == owner.GetUID() && ownerRef.Kind == runtimeObj.GetObjectKind().GroupVersionKind().Kind {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infrav1beta1.RateLimitService) (infrav1beta1.RateLimitService, ctrl.Result, error) {
 	service.Status.SubResourceCatalog = []infrav1beta1.ResourceReference{}
 	service, rules, err := r.extendserviceWithRateLimitRules(ctx, service)
@@ -302,6 +315,10 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 			return service, ctrl.Result{}, err
 		}
 	} else {
+		if !isOwner(&service, &cm) {
+			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing configmap: %s", cm.Name)
+		}
+
 		if err := r.Client.Update(ctx, cmTemplate); err != nil {
 			return service, ctrl.Result{}, err
 		}
@@ -510,6 +527,10 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 			return service, ctrl.Result{}, err
 		}
 	} else {
+		if !isOwner(&service, &cm) {
+			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing service: %s", svc.Name)
+		}
+
 		if err := r.Client.Update(ctx, svcTemplate); err != nil {
 			return service, ctrl.Result{}, err
 		}
@@ -531,6 +552,10 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		}
 
 	} else {
+		if !isOwner(&service, &cm) {
+			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing deployment: %s", deployment.Name)
+		}
+
 		if err := r.Client.Update(ctx, template); err != nil {
 			return service, ctrl.Result{}, err
 		}
