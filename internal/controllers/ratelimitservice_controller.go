@@ -86,12 +86,44 @@ func (r *RateLimitServiceReconciler) SetupWithManager(mgr ctrl.Manager, opts Rat
 
 func (r *RateLimitServiceReconciler) requestsForChangeBySelector(ctx context.Context, o client.Object) []reconcile.Request {
 	var list infrav1beta1.RateLimitServiceList
-	if err := r.List(ctx, &list, client.InNamespace(o.GetNamespace())); err != nil {
+	if err := r.List(ctx, &list); err != nil {
 		return nil
 	}
 
 	var reqs []reconcile.Request
 	for _, service := range list.Items {
+
+		var namespaces corev1.NamespaceList
+		if service.Spec.NamespaceSelector == nil {
+			namespaces.Items = append(namespaces.Items, corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: service.Namespace,
+				},
+			})
+		} else {
+			namespaceSelector, err := metav1.LabelSelectorAsSelector(service.Spec.NamespaceSelector)
+			if err != nil {
+				return nil
+			}
+
+			err = r.Client.List(ctx, &namespaces, client.MatchingLabelsSelector{Selector: namespaceSelector})
+			if err != nil {
+				return nil
+			}
+		}
+
+		var hasReferencedServiceNamespace bool
+		for _, ns := range namespaces.Items {
+			if ns.Name == o.GetNamespace() {
+				hasReferencedServiceNamespace = true
+				break
+			}
+		}
+
+		if !hasReferencedServiceNamespace {
+			continue
+		}
+
 		labelSel, err := metav1.LabelSelectorAsSelector(service.Spec.RuleSelector)
 		if err != nil {
 			r.Log.Error(err, "can not select resourceSelector selectors")
@@ -138,13 +170,12 @@ func (r *RateLimitServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logger.Error(err, "reconcile error occurred")
 		service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
 		r.Recorder.Event(&service, "Normal", "error", err.Error())
-		result.Requeue = true
 	}
 
 	// Update status after reconciliation.
 	if err := r.patchStatus(ctx, &service); err != nil {
 		logger.Error(err, "unable to update status after reconciliation")
-		return ctrl.Result{Requeue: true}, err
+		return ctrl.Result{}, err
 	}
 
 	return result, err
@@ -176,7 +207,8 @@ type YamlRoot struct {
 	Descriptors []*YamlDescriptor
 }
 
-func (r *RateLimitServiceReconciler) rulesToDescriptorSet(rules []infrav1beta1.RateLimitRule) map[string]*YamlRoot {
+func (r *RateLimitServiceReconciler) rulesToDescriptorSet(service infrav1beta1.RateLimitService, rules []infrav1beta1.RateLimitRule) (map[string]*YamlRoot, error) {
+	var keys []string
 	domains := make(map[string]*YamlRoot)
 
 	for _, rule := range rules {
@@ -188,7 +220,10 @@ func (r *RateLimitServiceReconciler) rulesToDescriptorSet(rules []infrav1beta1.R
 			}
 		}
 
+		key := rule.Spec.Domain
+
 		for _, descriptor := range rule.Spec.Descriptors {
+			key = fmt.Sprintf("%s.%s.%s", key, descriptor.Key, descriptor.Value)
 			has := false
 
 			var descriptors []*YamlDescriptor
@@ -226,17 +261,27 @@ func (r *RateLimitServiceReconciler) rulesToDescriptorSet(rules []infrav1beta1.R
 			RequestsPerUnit: rule.Spec.RequestsPerUnit,
 			Unit:            rule.Spec.Unit,
 			Unlimited:       rule.Spec.Unlimited,
-			Name:            rule.Name,
+			Name:            fmt.Sprintf("%s.%s", rule.Name, rule.Namespace),
 		}
 
+		if slices.Contains(keys, key) {
+			return domains, fmt.Errorf("duplicate descriptor path found, can not add rule with identical descriptor path to the same domain and service: %s.%s", rule.Name, rule.Namespace)
+		}
+
+		keys = append(keys, key)
 		for _, v := range rule.Spec.Replaces {
+			ruleName := fmt.Sprintf("%s.%s", v.Name, v.Namespace)
+			if v.Namespace == "" {
+				ruleName = fmt.Sprintf("%s.%s", v.Name, service.Namespace)
+			}
+
 			lastDescriptor.RateLimit.Replaces = append(lastDescriptor.RateLimit.Replaces, yamlReplaces{
-				Name: v.Name,
+				Name: ruleName,
 			})
 		}
 	}
 
-	return domains
+	return domains, nil
 }
 
 func isOwner(owner, owned metav1.Object) bool {
@@ -285,7 +330,11 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		Data: make(map[string]string),
 	}
 
-	domains := r.rulesToDescriptorSet(rules)
+	domains, err := r.rulesToDescriptorSet(service, rules)
+	if err != nil {
+		return service, ctrl.Result{}, err
+	}
+
 	checksumSha := sha256.New()
 
 	for domain, cfg := range domains {
@@ -566,7 +615,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 }
 
 func (r *RateLimitServiceReconciler) extendserviceWithRateLimitRules(ctx context.Context, service infrav1beta1.RateLimitService) (infrav1beta1.RateLimitService, []infrav1beta1.RateLimitRule, error) {
-	var specifications infrav1beta1.RateLimitRuleList
+	var rules infrav1beta1.RateLimitRuleList
 	rateLimitRuleSelector, err := metav1.LabelSelectorAsSelector(service.Spec.RuleSelector)
 	if err != nil {
 		return service, nil, err
@@ -598,25 +647,31 @@ func (r *RateLimitServiceReconciler) extendserviceWithRateLimitRules(ctx context
 			return service, nil, err
 		}
 
-		specifications.Items = append(specifications.Items, namespacedRateLimitRule.Items...)
+		rules.Items = append(rules.Items, namespacedRateLimitRule.Items...)
 	}
 
-	slices.SortFunc(specifications.Items, func(a, b infrav1beta1.RateLimitRule) int {
+	slices.SortFunc(rules.Items, func(a, b infrav1beta1.RateLimitRule) int {
 		return cmp.Or(
 			cmp.Compare(a.Name, b.Name),
 			cmp.Compare(a.Namespace, b.Namespace),
 		)
 	})
 
-	for _, client := range specifications.Items {
-		service.Status.SubResourceCatalog = append(service.Status.SubResourceCatalog, infrav1beta1.ResourceReference{
-			Kind:       client.Kind,
-			Name:       client.Name,
-			APIVersion: client.APIVersion,
-		})
+	for _, rule := range rules.Items {
+		ref := infrav1beta1.ResourceReference{
+			Kind:       rule.Kind,
+			Name:       rule.Name,
+			APIVersion: rule.APIVersion,
+		}
+
+		if rule.Namespace != service.Namespace {
+			ref.Namespace = rule.Namespace
+		}
+
+		service.Status.SubResourceCatalog = append(service.Status.SubResourceCatalog, ref)
 	}
 
-	return service, specifications.Items, nil
+	return service, rules.Items, nil
 }
 
 func (r *RateLimitServiceReconciler) patchStatus(ctx context.Context, service *infrav1beta1.RateLimitService) error {

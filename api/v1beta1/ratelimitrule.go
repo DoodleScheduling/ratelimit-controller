@@ -29,13 +29,13 @@ func init() {
 type RateLimitRuleSpec struct {
 	Domain string `json:"domain"`
 	// +kubebuilder:validation:Enum=second;minute;hour;day;month;year
-	Unit            string                   `json:"unit,omitempty"`
-	RequestsPerUnit uint32                   `json:"requestsPerUnit,omitempty"`
-	Unlimited       bool                     `json:"unlimited,omitempty"`
-	Replaces        []LocalResourceReference `json:"replaces,omitempty"`
-	Descriptors     []Descriptor             `json:"descriptors"`
-	ShadowMode      bool                     `json:"shadowMode,omitempty"`
-	DetailedMetric  bool                     `json:"detailedMetric,omitempty"`
+	Unit            string                            `json:"unit,omitempty"`
+	RequestsPerUnit uint32                            `json:"requestsPerUnit,omitempty"`
+	Unlimited       bool                              `json:"unlimited,omitempty"`
+	Replaces        []CrossNamespaceResourceReference `json:"replaces,omitempty"`
+	Descriptors     []Descriptor                      `json:"descriptors"`
+	ShadowMode      bool                              `json:"shadowMode,omitempty"`
+	DetailedMetric  bool                              `json:"detailedMetric,omitempty"`
 }
 
 type Descriptor struct {
@@ -43,6 +43,7 @@ type Descriptor struct {
 	Value string `json:"value,omitempty"`
 }
 
-type LocalResourceReference struct {
-	Name string `json:"name"`
+type CrossNamespaceResourceReference struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitempty"`
 }
