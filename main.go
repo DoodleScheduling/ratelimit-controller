@@ -74,7 +74,7 @@ func main() {
 	flag.StringVar(&healthAddr, "health-addr", ":9557",
 		"The address the health endpoint binds to.")
 	flag.IntVar(&concurrent, "concurrent", 4,
-		"The number of concurrent SwaggerHub reconciles.")
+		"The number of concurrent RateLimitService reconciles.")
 	flag.DurationVar(&gracefulShutdownTimeout, "graceful-shutdown-timeout", 600*time.Second,
 		"The duration given to the reconciler to finish before forcibly stopping.")
 
