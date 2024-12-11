@@ -49,6 +49,7 @@ import (
 // +kubebuilder:rbac:groups=ratelimit.infra.doodle.com,resources=ratelimitservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=ratelimit.infra.doodle.com,resources=ratelimitrules,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;update;patch;delete;watch;list
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;watch;list
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
