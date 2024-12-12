@@ -1,0 +1,29 @@
+apiVersion: ratelimit.infra.doodle.com/v1beta1
+kind: RateLimitRule
+metadata: 
+  name: catchall-rule
+spec:
+  domain: apis.example.com
+  unit: hour
+  requestsPerUnit: 100
+  shadowMode: true
+  descriptors:
+  - key: generic_key
+  - key: authorization
+---
+apiVersion: ratelimit.infra.doodle.com/v1beta1
+kind: RateLimitRule
+metadata: 
+  name: service-2
+spec:
+  domain: apis.example.com
+  unit: hour
+  requestsPerUnit: 100
+  shadowMode: true
+  replaces:
+  - name: catchall-rule
+  descriptors:
+  - key: generic_key
+    value: name=service-2
+  - key: generic_key
+  - key: authorization

@@ -256,6 +256,8 @@ func (r *RateLimitServiceReconciler) rulesToDescriptorSet(service infrav1beta1.R
 			}
 		}
 
+		lastDescriptor.DetailedMetric = rule.Spec.DetailedMetric
+		lastDescriptor.ShadowMode = rule.Spec.ShadowMode
 		lastDescriptor.RateLimit = &YamlRateLimit{
 			RequestsPerUnit: rule.Spec.RequestsPerUnit,
 			Unit:            rule.Spec.Unit,
@@ -304,17 +306,22 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	}
 
 	var (
-		gid          int64 = 10000
-		uid          int64 = 10000
-		runAsNonRoot bool  = true
-		replicas     int32 = 1
+		gid             int64 = 10000
+		uid             int64 = 10000
+		runAsNonRoot    bool  = true
+		replicas        int32 = 1
+		controllerOwner       = true
+		labels                = map[string]string{
+			"app.kubernetes.io/instance":   "ratelimit",
+			"app.kubernetes.io/name":       "ratelimit",
+			"ratelimit-controller/service": service.Name,
+		}
 	)
-
-	controllerOwner := true
 
 	cmTemplate := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("ratelimit-%s", service.Name),
+			Labels:    labels,
 			Namespace: service.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -420,11 +427,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	}
 
 	template.Spec.Selector = &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"app.kubernetes.io/instance":   "ratelimit",
-			"app.kubernetes.io/name":       "ratelimit",
-			"ratelimit-controller/service": service.Name,
-		},
+		MatchLabels: labels,
 	}
 
 	if template.Spec.Replicas == nil {
@@ -531,6 +534,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("ratelimit-%s", service.Name),
 			Namespace: service.Namespace,
+			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					Name:       service.Name,
@@ -554,11 +558,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 					TargetPort: intstr.IntOrString{StrVal: "grpc", Type: intstr.String},
 				},
 			},
-			Selector: map[string]string{
-				"app.kubernetes.io/instance":   "ratelimit",
-				"app.kubernetes.io/name":       "ratelimit",
-				"ratelimit-controller/service": service.Name,
-			},
+			Selector: labels,
 		},
 	}
 
@@ -602,7 +602,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		}
 
 	} else {
-		if !isOwner(&service, &cm) {
+		if !isOwner(&service, &deployment) {
 			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing deployment: %s", deployment.Name)
 		}
 

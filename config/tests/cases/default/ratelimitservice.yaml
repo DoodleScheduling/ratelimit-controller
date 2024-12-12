@@ -1,0 +1,35 @@
+apiVersion: ratelimit.infra.doodle.com/v1beta1
+kind: RateLimitService
+metadata: 
+  name: ratelimit
+spec:
+  ruleSelector: {}
+  deploymentTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: ratelimit
+            env:
+            - name: LOG_LEVEL
+              value: debug
+            - name: REDIS_PIPELINE_WINDOW
+              value: 150us
+            - name: LIMIT_RESPONSE_HEADERS_ENABLED
+              value: "true"
+            - name: USE_STATSD
+              value: "true"
+            - name: STATSD_HOST
+              value: localhost
+            - name: STATSD_PORT
+              value: "9125"
+            - name: LOG_FORMAT
+              value: json
+            - name: REDIS_SOCKET_TYPE
+              value: tcp
+            - name: REDIS_URL
+              value: redis-master:6379
+            - name: REDIS_TYPE
+              value: single
+            - name: REDIS_TLS
+              value: "false"
