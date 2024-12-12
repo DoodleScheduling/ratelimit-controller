@@ -256,6 +256,7 @@ func (r *RateLimitServiceReconciler) rulesToDescriptorSet(service infrav1beta1.R
 			}
 		}
 
+		lastDescriptor.ShadowMode = rule.Spec.ShadowMode
 		lastDescriptor.RateLimit = &YamlRateLimit{
 			RequestsPerUnit: rule.Spec.RequestsPerUnit,
 			Unit:            rule.Spec.Unit,
