@@ -92,7 +92,6 @@ func (r *RateLimitServiceReconciler) requestsForChangeBySelector(ctx context.Con
 
 	var reqs []reconcile.Request
 	for _, service := range list.Items {
-
 		var namespaces corev1.NamespaceList
 		if service.Spec.NamespaceSelector == nil {
 			namespaces.Items = append(namespaces.Items, corev1.Namespace{
@@ -475,6 +474,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 					ContainerPort: 8080,
 				},
 				{
+					Name:          "grpc",
 					ContainerPort: 8081,
 				},
 			},
@@ -488,10 +488,6 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 				"/bin/ratelimit",
 			},
 			Env: []corev1.EnvVar{
-				corev1.EnvVar{
-					Name:  "LOG_LEVEL",
-					Value: "debug",
-				},
 				corev1.EnvVar{
 					Name:  "RUNTIME_SUBDIRECTORY",
 					Value: "runtime",
@@ -549,8 +545,13 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "http",
-					Port:       80,
+					Port:       8080,
 					TargetPort: intstr.IntOrString{StrVal: "http", Type: intstr.String},
+				},
+				{
+					Name:       "grpc",
+					Port:       8081,
+					TargetPort: intstr.IntOrString{StrVal: "grpc", Type: intstr.String},
 				},
 			},
 			Selector: map[string]string{
