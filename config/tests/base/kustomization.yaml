@@ -8,5 +8,4 @@ images:
 
 resources: 
 - ../../default
-- ratelimithub.yaml
 - verify-pod.yaml
