@@ -61,7 +61,7 @@ vet: ## Run go vet against code.
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint against code
-	$(GOLANGCI_LINT) run --timeout=2m ./...
+	$(GOLANGCI_LINT) run --timeout=3m ./...
 
 .PHONY: test
 test: envtest manifests generate fmt vet tidy ## Run tests.
@@ -139,7 +139,7 @@ controller-gen: ## Download controller-gen locally if necessary.
 GOLANGCI_LINT = $(GOBIN)/golangci-lint
 .PHONY: golangci-lint
 golangci-lint: ## Download golint locally if necessary
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.0)
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4)
 
 KUSTOMIZE = $(GOBIN)/kustomize
 .PHONY: kustomize
