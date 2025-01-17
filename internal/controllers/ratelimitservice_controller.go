@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"gopkg.in/yaml.v2"
@@ -75,6 +76,14 @@ func (r *RateLimitServiceReconciler) SetupWithManager(mgr ctrl.Manager, opts Rat
 		Watches(
 			&infrav1beta1.RateLimitRule{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForChangeBySelector),
+		).
+		Watches(
+			&appsv1.Deployment{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &infrav1beta1.RateLimitService{}, handler.OnlyControllerOwner()),
+		).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &infrav1beta1.RateLimitService{}, handler.OnlyControllerOwner()),
 		).
 		Watches(
 			&corev1.Service{},
@@ -374,6 +383,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing configmap: %s", cm.Name)
 		}
 
+		mergeMetadata(&cmTemplate.ObjectMeta, cm.ObjectMeta)
 		if err := r.Client.Update(ctx, cmTemplate); err != nil {
 			return service, ctrl.Result{}, err
 		}
@@ -528,7 +538,6 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	})
 
 	template.Spec.Template.Spec.Containers = containers
-	r.Log.Info("create ratelimit deployment", "deployment-name", template.Name)
 
 	svcTemplate := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -581,6 +590,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing service: %s", svc.Name)
 		}
 
+		mergeMetadata(&svcTemplate.ObjectMeta, svc.ObjectMeta)
 		if err := r.Client.Update(ctx, svcTemplate); err != nil {
 			return service, ctrl.Result{}, err
 		}
@@ -606,6 +616,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing deployment: %s", deployment.Name)
 		}
 
+		mergeMetadata(&template.ObjectMeta, deployment.ObjectMeta)
 		if err := r.Client.Update(ctx, template); err != nil {
 			return service, ctrl.Result{}, err
 		}
@@ -613,6 +624,39 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 
 	service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionTrue, "ReconciliationSuccessful", fmt.Sprintf("deployment/%s created", template.Name))
 	return service, ctrl.Result{}, nil
+}
+
+// mergeMetadata takes labels and annotations from the old resource and merges
+// them into the new resource. If a key is present in both resources, the new
+// resource wins. It also copies the ResourceVersion from the old resource to
+// the new resource to prevent update conflicts.
+func mergeMetadata(new *metav1.ObjectMeta, old metav1.ObjectMeta) {
+	new.ResourceVersion = old.ResourceVersion
+
+	new.SetLabels(mergeMaps(new.Labels, old.Labels))
+	new.SetAnnotations(mergeMaps(new.Annotations, old.Annotations))
+}
+
+func mergeMaps(new map[string]string, old map[string]string) map[string]string {
+	return mergeMapsByPrefix(new, old, "")
+}
+
+func mergeMapsByPrefix(from map[string]string, to map[string]string, prefix string) map[string]string {
+	if to == nil {
+		to = make(map[string]string)
+	}
+
+	if from == nil {
+		from = make(map[string]string)
+	}
+
+	for k, v := range from {
+		if strings.HasPrefix(k, prefix) {
+			to[k] = v
+		}
+	}
+
+	return to
 }
 
 func (r *RateLimitServiceReconciler) extendserviceWithRateLimitRules(ctx context.Context, service infrav1beta1.RateLimitService) (infrav1beta1.RateLimitService, []infrav1beta1.RateLimitRule, error) {
