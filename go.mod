@@ -2,7 +2,7 @@ module github.com/DoodleScheduling/ratelimit-controller
 
 go 1.23.0
 
-toolchain go1.23.4
+toolchain go1.23.5
 
 require (
 	github.com/fluxcd/pkg/runtime v0.52.0
