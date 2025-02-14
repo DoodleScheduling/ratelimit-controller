@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.6
 
 require (
-	github.com/fluxcd/pkg/runtime v0.53.0
+	github.com/fluxcd/pkg/runtime v0.53.1
 	github.com/go-logr/logr v1.4.2
 	github.com/kylelemons/godebug v1.1.0
 	github.com/onsi/ginkgo/v2 v2.22.2
