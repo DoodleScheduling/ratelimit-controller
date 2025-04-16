@@ -317,7 +317,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	var (
 		gid             int64 = 10000
 		uid             int64 = 10000
-		runAsNonRoot     = true
+		runAsNonRoot          = true
 		replicas        int32 = 1
 		controllerOwner       = true
 		labels                = map[string]string{
