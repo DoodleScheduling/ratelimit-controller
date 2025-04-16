@@ -114,7 +114,7 @@ func (r *RateLimitServiceReconciler) requestsForChangeBySelector(ctx context.Con
 				return nil
 			}
 
-			err = r.Client.List(ctx, &namespaces, client.MatchingLabelsSelector{Selector: namespaceSelector})
+			err = r.List(ctx, &namespaces, client.MatchingLabelsSelector{Selector: namespaceSelector})
 			if err != nil {
 				return nil
 			}
@@ -155,7 +155,7 @@ func (r *RateLimitServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Fetch the RateLimitService instance
 	service := infrav1beta1.RateLimitService{}
 
-	err := r.Client.Get(ctx, req.NamespacedName, &service)
+	err := r.Get(ctx, req.NamespacedName, &service)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -317,7 +317,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	var (
 		gid             int64 = 10000
 		uid             int64 = 10000
-		runAsNonRoot    bool  = true
+		runAsNonRoot     = true
 		replicas        int32 = 1
 		controllerOwner       = true
 		labels                = map[string]string{
@@ -365,7 +365,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	checksum := fmt.Sprintf("%x", checksumSha.Sum(nil))
 
 	var cm corev1.ConfigMap
-	err = r.Client.Get(ctx, client.ObjectKey{
+	err = r.Get(ctx, client.ObjectKey{
 		Namespace: cmTemplate.Namespace,
 		Name:      cmTemplate.Name,
 	}, &cm)
@@ -375,7 +375,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	}
 
 	if apierrors.IsNotFound(err) {
-		if err := r.Client.Create(ctx, cmTemplate); err != nil {
+		if err := r.Create(ctx, cmTemplate); err != nil {
 			return service, ctrl.Result{}, err
 		}
 	} else {
@@ -384,7 +384,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		}
 
 		mergeMetadata(&cmTemplate.ObjectMeta, cm.ObjectMeta)
-		if err := r.Client.Update(ctx, cmTemplate); err != nil {
+		if err := r.Update(ctx, cmTemplate); err != nil {
 			return service, ctrl.Result{}, err
 		}
 	}
@@ -417,8 +417,8 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	}
 
 	if service.Spec.DeploymentTemplate != nil {
-		template.ObjectMeta.Labels = service.Spec.DeploymentTemplate.Labels
-		template.ObjectMeta.Annotations = service.Spec.DeploymentTemplate.Annotations
+		template.Labels = service.Spec.DeploymentTemplate.Labels
+		template.Annotations = service.Spec.DeploymentTemplate.Annotations
 		service.Spec.DeploymentTemplate.Spec.Template.DeepCopyInto(&template.Spec.Template)
 		template.Spec.MinReadySeconds = service.Spec.DeploymentTemplate.Spec.MinReadySeconds
 		template.Spec.Paused = service.Spec.DeploymentTemplate.Spec.Paused
@@ -428,12 +428,12 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		template.Spec.Strategy = service.Spec.DeploymentTemplate.Spec.Strategy
 	}
 
-	if template.ObjectMeta.Labels == nil {
-		template.ObjectMeta.Labels = make(map[string]string)
+	if template.Labels == nil {
+		template.Labels = make(map[string]string)
 	}
 
-	if template.Spec.Template.ObjectMeta.Labels == nil {
-		template.Spec.Template.ObjectMeta.Labels = make(map[string]string)
+	if template.Spec.Template.Labels == nil {
+		template.Spec.Template.Labels = make(map[string]string)
 	}
 
 	template.Spec.Selector = &metav1.LabelSelector{
@@ -444,22 +444,22 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		template.Spec.Replicas = &replicas
 	}
 
-	template.Spec.Template.ObjectMeta.Labels["app.kubernetes.io/instance"] = "ratelimit"
-	template.Spec.Template.ObjectMeta.Labels["app.kubernetes.io/name"] = "ratelimit"
-	template.Spec.Template.ObjectMeta.Labels["ratelimit-controller/service"] = service.Name
-	template.ObjectMeta.Labels["app.kubernetes.io/instance"] = "ratelimit"
-	template.ObjectMeta.Labels["app.kubernetes.io/name"] = "ratelimit"
-	template.ObjectMeta.Labels["ratelimit-controller/service"] = service.Name
+	template.Spec.Template.Labels["app.kubernetes.io/instance"] = "ratelimit"
+	template.Spec.Template.Labels["app.kubernetes.io/name"] = "ratelimit"
+	template.Spec.Template.Labels["ratelimit-controller/service"] = service.Name
+	template.Labels["app.kubernetes.io/instance"] = "ratelimit"
+	template.Labels["app.kubernetes.io/name"] = "ratelimit"
+	template.Labels["ratelimit-controller/service"] = service.Name
 
 	if template.Annotations == nil {
 		template.Annotations = make(map[string]string)
 	}
 
-	if template.Spec.Template.ObjectMeta.Annotations == nil {
-		template.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+	if template.Spec.Template.Annotations == nil {
+		template.Spec.Template.Annotations = make(map[string]string)
 	}
 
-	template.Spec.Template.ObjectMeta.Annotations["ratelimit-controller/sha256-checksum"] = checksum
+	template.Spec.Template.Annotations["ratelimit-controller/sha256-checksum"] = checksum
 
 	containers := []corev1.Container{
 		{
@@ -572,7 +572,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	}
 
 	var svc corev1.Service
-	err = r.Client.Get(ctx, client.ObjectKey{
+	err = r.Get(ctx, client.ObjectKey{
 		Namespace: svcTemplate.Namespace,
 		Name:      svcTemplate.Name,
 	}, &svc)
@@ -582,7 +582,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	}
 
 	if apierrors.IsNotFound(err) {
-		if err := r.Client.Create(ctx, svcTemplate); err != nil {
+		if err := r.Create(ctx, svcTemplate); err != nil {
 			return service, ctrl.Result{}, err
 		}
 	} else {
@@ -591,13 +591,13 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		}
 
 		mergeMetadata(&svcTemplate.ObjectMeta, svc.ObjectMeta)
-		if err := r.Client.Update(ctx, svcTemplate); err != nil {
+		if err := r.Update(ctx, svcTemplate); err != nil {
 			return service, ctrl.Result{}, err
 		}
 	}
 
 	var deployment appsv1.Deployment
-	err = r.Client.Get(ctx, client.ObjectKey{
+	err = r.Get(ctx, client.ObjectKey{
 		Namespace: template.Namespace,
 		Name:      template.Name,
 	}, &deployment)
@@ -607,7 +607,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	}
 
 	if apierrors.IsNotFound(err) {
-		if err := r.Client.Create(ctx, template); err != nil {
+		if err := r.Create(ctx, template); err != nil {
 			return service, ctrl.Result{}, err
 		}
 
@@ -617,7 +617,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		}
 
 		mergeMetadata(&template.ObjectMeta, deployment.ObjectMeta)
-		if err := r.Client.Update(ctx, template); err != nil {
+		if err := r.Update(ctx, template); err != nil {
 			return service, ctrl.Result{}, err
 		}
 	}
@@ -679,7 +679,7 @@ func (r *RateLimitServiceReconciler) extendserviceWithRateLimitRules(ctx context
 			return service, nil, err
 		}
 
-		err = r.Client.List(ctx, &namespaces, client.MatchingLabelsSelector{Selector: namespaceSelector})
+		err = r.List(ctx, &namespaces, client.MatchingLabelsSelector{Selector: namespaceSelector})
 		if err != nil {
 			return service, nil, err
 		}
@@ -687,7 +687,7 @@ func (r *RateLimitServiceReconciler) extendserviceWithRateLimitRules(ctx context
 
 	for _, namespace := range namespaces.Items {
 		var namespacedRateLimitRule infrav1beta1.RateLimitRuleList
-		err = r.Client.List(ctx, &namespacedRateLimitRule, client.InNamespace(namespace.Name), client.MatchingLabelsSelector{Selector: rateLimitRuleSelector})
+		err = r.List(ctx, &namespacedRateLimitRule, client.InNamespace(namespace.Name), client.MatchingLabelsSelector{Selector: rateLimitRuleSelector})
 		if err != nil {
 			return service, nil, err
 		}
@@ -722,11 +722,11 @@ func (r *RateLimitServiceReconciler) extendserviceWithRateLimitRules(ctx context
 func (r *RateLimitServiceReconciler) patchStatus(ctx context.Context, service *infrav1beta1.RateLimitService) error {
 	key := client.ObjectKeyFromObject(service)
 	latest := &infrav1beta1.RateLimitService{}
-	if err := r.Client.Get(ctx, key, latest); err != nil {
+	if err := r.Get(ctx, key, latest); err != nil {
 		return err
 	}
 
-	return r.Client.Status().Patch(ctx, service, client.MergeFrom(latest))
+	return r.Status().Patch(ctx, service, client.MergeFrom(latest))
 }
 
 // objectKey returns client.ObjectKey for the object.

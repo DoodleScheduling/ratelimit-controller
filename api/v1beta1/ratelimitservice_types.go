@@ -154,12 +154,12 @@ type ResourceReference struct {
 }
 
 func RateLimitServiceReconciling(realm RateLimitService, status metav1.ConditionStatus, reason, message string) RateLimitService {
-	setResourceCondition(&realm, ConditionReconciling, status, reason, message, realm.ObjectMeta.Generation)
+	setResourceCondition(&realm, ConditionReconciling, status, reason, message, realm.Generation)
 	return realm
 }
 
 func RateLimitServiceReady(realm RateLimitService, status metav1.ConditionStatus, reason, message string) RateLimitService {
-	setResourceCondition(&realm, ConditionReady, status, reason, message, realm.ObjectMeta.Generation)
+	setResourceCondition(&realm, ConditionReady, status, reason, message, realm.Generation)
 	return realm
 }
 
