@@ -1,4 +1,4 @@
-FROM gcr.io/distroless/static:latest@sha256:3f2b64ef97bd285e36132c684e6b2ae8f2723293d09aae046196cca64251acac
+FROM gcr.io/distroless/static:latest@sha256:b7b9a6953e7bed6baaf37329331051d7bdc1b99c885f6dbeb72d75b1baad54f9
 WORKDIR /
 COPY manager manager
 USER 65532:65532
