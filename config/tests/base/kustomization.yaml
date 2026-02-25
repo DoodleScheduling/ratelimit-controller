@@ -2,13 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 helmCharts:
-- repo: oci://registry-1.docker.io/bitnamicharts
-  name: redis
-  version: 20.5.0
-  releaseName: redis
-  valuesInline:
-    auth:
-      enabled: false
+- repo: oci://ghcr.io/dragonflydb/dragonfly/helm
+  name: dragonfly
+  version: v1.37.0
+  releaseName: dragonfly
 
 images:
 - name: ghcr.io/doodlescheduling/ratelimit-controller
