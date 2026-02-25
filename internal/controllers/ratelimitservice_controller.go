@@ -22,10 +22,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/go-logr/logr"
-	"gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -318,7 +317,6 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		gid             int64 = 10000
 		uid             int64 = 10000
 		runAsNonRoot          = true
-		replicas        int32 = 1
 		controllerOwner       = true
 		labels                = map[string]string{
 			"app.kubernetes.io/instance":   "ratelimit",
@@ -363,33 +361,11 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	}
 
 	checksum := fmt.Sprintf("%x", checksumSha.Sum(nil))
-
-	var cm corev1.ConfigMap
-	err = r.Get(ctx, client.ObjectKey{
-		Namespace: cmTemplate.Namespace,
-		Name:      cmTemplate.Name,
-	}, &cm)
-
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err := r.createOrUpdateWithOwnershipValidation(ctx, &service, cmTemplate); err != nil {
 		return service, ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		if err := r.Create(ctx, cmTemplate); err != nil {
-			return service, ctrl.Result{}, err
-		}
-	} else {
-		if !isOwner(&service, &cm) {
-			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing configmap: %s", cm.Name)
-		}
-
-		mergeMetadata(&cmTemplate.ObjectMeta, cm.ObjectMeta)
-		if err := r.Update(ctx, cmTemplate); err != nil {
-			return service, ctrl.Result{}, err
-		}
-	}
-
-	template := &appsv1.Deployment{
+	deploymentTemplate := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("ratelimit-%s", service.Name),
 			Namespace: service.Namespace,
@@ -417,49 +393,44 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 	}
 
 	if service.Spec.DeploymentTemplate != nil {
-		template.Labels = service.Spec.DeploymentTemplate.Labels
-		template.Annotations = service.Spec.DeploymentTemplate.Annotations
-		service.Spec.DeploymentTemplate.Spec.Template.DeepCopyInto(&template.Spec.Template)
-		template.Spec.MinReadySeconds = service.Spec.DeploymentTemplate.Spec.MinReadySeconds
-		template.Spec.Paused = service.Spec.DeploymentTemplate.Spec.Paused
-		template.Spec.ProgressDeadlineSeconds = service.Spec.DeploymentTemplate.Spec.ProgressDeadlineSeconds
-		template.Spec.Replicas = service.Spec.DeploymentTemplate.Spec.Replicas
-		template.Spec.RevisionHistoryLimit = service.Spec.DeploymentTemplate.Spec.RevisionHistoryLimit
-		template.Spec.Strategy = service.Spec.DeploymentTemplate.Spec.Strategy
+		deploymentTemplate.Labels = service.Spec.DeploymentTemplate.Labels
+		deploymentTemplate.Annotations = service.Spec.DeploymentTemplate.Annotations
+		service.Spec.DeploymentTemplate.Spec.Template.DeepCopyInto(&deploymentTemplate.Spec.Template)
+		deploymentTemplate.Spec.MinReadySeconds = service.Spec.DeploymentTemplate.Spec.MinReadySeconds
+		deploymentTemplate.Spec.Paused = service.Spec.DeploymentTemplate.Spec.Paused
+		deploymentTemplate.Spec.ProgressDeadlineSeconds = service.Spec.DeploymentTemplate.Spec.ProgressDeadlineSeconds
+		deploymentTemplate.Spec.Replicas = service.Spec.DeploymentTemplate.Spec.Replicas
+		deploymentTemplate.Spec.RevisionHistoryLimit = service.Spec.DeploymentTemplate.Spec.RevisionHistoryLimit
+		deploymentTemplate.Spec.Strategy = service.Spec.DeploymentTemplate.Spec.Strategy
 	}
 
-	if template.Labels == nil {
-		template.Labels = make(map[string]string)
+	if deploymentTemplate.Labels == nil {
+		deploymentTemplate.Labels = make(map[string]string)
 	}
 
-	if template.Spec.Template.Labels == nil {
-		template.Spec.Template.Labels = make(map[string]string)
+	if deploymentTemplate.Spec.Template.Labels == nil {
+		deploymentTemplate.Spec.Template.Labels = make(map[string]string)
 	}
 
-	template.Spec.Selector = &metav1.LabelSelector{
+	if deploymentTemplate.Annotations == nil {
+		deploymentTemplate.Annotations = make(map[string]string)
+	}
+
+	if deploymentTemplate.Spec.Template.Annotations == nil {
+		deploymentTemplate.Spec.Template.Annotations = make(map[string]string)
+	}
+
+	deploymentTemplate.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: labels,
 	}
 
-	if template.Spec.Replicas == nil {
-		template.Spec.Replicas = &replicas
-	}
-
-	template.Spec.Template.Labels["app.kubernetes.io/instance"] = "ratelimit"
-	template.Spec.Template.Labels["app.kubernetes.io/name"] = "ratelimit"
-	template.Spec.Template.Labels["ratelimit-controller/service"] = service.Name
-	template.Labels["app.kubernetes.io/instance"] = "ratelimit"
-	template.Labels["app.kubernetes.io/name"] = "ratelimit"
-	template.Labels["ratelimit-controller/service"] = service.Name
-
-	if template.Annotations == nil {
-		template.Annotations = make(map[string]string)
-	}
-
-	if template.Spec.Template.Annotations == nil {
-		template.Spec.Template.Annotations = make(map[string]string)
-	}
-
-	template.Spec.Template.Annotations["ratelimit-controller/sha256-checksum"] = checksum
+	deploymentTemplate.Spec.Template.Labels["app.kubernetes.io/instance"] = "ratelimit"
+	deploymentTemplate.Spec.Template.Labels["app.kubernetes.io/name"] = "ratelimit"
+	deploymentTemplate.Spec.Template.Labels["ratelimit-controller/service"] = service.Name
+	deploymentTemplate.Labels["app.kubernetes.io/instance"] = "ratelimit"
+	deploymentTemplate.Labels["app.kubernetes.io/name"] = "ratelimit"
+	deploymentTemplate.Labels["ratelimit-controller/service"] = service.Name
+	deploymentTemplate.Spec.Template.Annotations["ratelimit-controller/sha256-checksum"] = checksum
 
 	containers := []corev1.Container{
 		{
@@ -521,12 +492,12 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		},
 	}
 
-	containers, err = merge.MergePatchContainers(containers, template.Spec.Template.Spec.Containers)
+	containers, err = merge.MergePatchContainers(containers, deploymentTemplate.Spec.Template.Spec.Containers)
 	if err != nil {
 		return service, ctrl.Result{}, err
 	}
 
-	template.Spec.Template.Spec.Volumes = append(template.Spec.Template.Spec.Volumes, corev1.Volume{
+	deploymentTemplate.Spec.Template.Spec.Volumes = append(deploymentTemplate.Spec.Template.Spec.Volumes, corev1.Volume{
 		Name: "config",
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -537,7 +508,7 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		},
 	})
 
-	template.Spec.Template.Spec.Containers = containers
+	deploymentTemplate.Spec.Template.Spec.Containers = containers
 
 	svcTemplate := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -571,92 +542,53 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		},
 	}
 
-	var svc corev1.Service
-	err = r.Get(ctx, client.ObjectKey{
-		Namespace: svcTemplate.Namespace,
-		Name:      svcTemplate.Name,
-	}, &svc)
-
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err := r.createOrUpdateWithOwnershipValidation(ctx, &service, svcTemplate); err != nil {
 		return service, ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		if err := r.Create(ctx, svcTemplate); err != nil {
-			return service, ctrl.Result{}, err
-		}
-	} else {
-		if !isOwner(&service, &cm) {
-			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing service: %s", svc.Name)
-		}
-
-		mergeMetadata(&svcTemplate.ObjectMeta, svc.ObjectMeta)
-		if err := r.Update(ctx, svcTemplate); err != nil {
-			return service, ctrl.Result{}, err
-		}
-	}
-
-	var deployment appsv1.Deployment
-	err = r.Get(ctx, client.ObjectKey{
-		Namespace: template.Namespace,
-		Name:      template.Name,
-	}, &deployment)
-
-	if err != nil && !apierrors.IsNotFound(err) {
+	if err := r.createOrUpdateWithOwnershipValidation(ctx, &service, deploymentTemplate); err != nil {
 		return service, ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		if err := r.Create(ctx, template); err != nil {
-			return service, ctrl.Result{}, err
-		}
-
-	} else {
-		if !isOwner(&service, &deployment) {
-			return service, ctrl.Result{}, fmt.Errorf("can not take ownership of existing deployment: %s", deployment.Name)
-		}
-
-		mergeMetadata(&template.ObjectMeta, deployment.ObjectMeta)
-		if err := r.Update(ctx, template); err != nil {
-			return service, ctrl.Result{}, err
-		}
-	}
-
-	service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionTrue, "ReconciliationSuccessful", fmt.Sprintf("deployment/%s created", template.Name))
+	service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionTrue, "ReconciliationSuccessful", fmt.Sprintf("deployment/%s created", deploymentTemplate.Name))
 	return service, ctrl.Result{}, nil
 }
 
-// mergeMetadata takes labels and annotations from the old resource and merges
-// them into the new resource. If a key is present in both resources, the new
-// resource wins. It also copies the ResourceVersion from the old resource to
-// the new resource to prevent update conflicts.
-func mergeMetadata(new *metav1.ObjectMeta, old metav1.ObjectMeta) {
-	new.ResourceVersion = old.ResourceVersion
+func (r *RateLimitServiceReconciler) createOrUpdateWithOwnershipValidation(ctx context.Context, owner client.Object, obj client.Object) error {
+	existing := obj.DeepCopyObject().(client.Object)
+	err := r.Get(ctx, client.ObjectKey{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}, existing)
 
-	new.SetLabels(mergeMaps(new.Labels, old.Labels))
-	new.SetAnnotations(mergeMaps(new.Annotations, old.Annotations))
-}
-
-func mergeMaps(new map[string]string, old map[string]string) map[string]string {
-	return mergeMapsByPrefix(new, old, "")
-}
-
-func mergeMapsByPrefix(from map[string]string, to map[string]string, prefix string) map[string]string {
-	if to == nil {
-		to = make(map[string]string)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
 	}
 
-	if from == nil {
-		from = make(map[string]string)
-	}
+	if apierrors.IsNotFound(err) {
+		if err := r.Create(ctx, obj); err != nil {
+			return err
+		}
+	} else {
+		if !isOwner(owner, existing) {
+			return fmt.Errorf("can not take ownership of existing resource: %s", obj.GetName())
+		}
 
-	for k, v := range from {
-		if strings.HasPrefix(k, prefix) {
-			to[k] = v
+		obj.GetObjectKind().SetGroupVersionKind(existing.GetObjectKind().GroupVersionKind())
+		err := r.Patch(
+			ctx,
+			obj,
+			client.Apply,
+			client.FieldOwner("ratelimit-controller"),
+			client.ForceOwnership,
+		)
+
+		if err != nil {
+			return fmt.Errorf("can not patch resource: %w", err)
 		}
 	}
 
-	return to
+	return nil
 }
 
 func (r *RateLimitServiceReconciler) extendserviceWithRateLimitRules(ctx context.Context, service infrav1beta1.RateLimitService) (infrav1beta1.RateLimitService, []infrav1beta1.RateLimitRule, error) {
