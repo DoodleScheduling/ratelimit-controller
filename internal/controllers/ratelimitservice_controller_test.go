@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func needExactStatus(reconciledInstance *v1beta1.RateLimitService, expectedStatus *v1beta1.RateLimitServiceStatus) error {
@@ -536,9 +537,32 @@ descriptors:
 		})
 	})
 
-	When("it reconciles a service which would manage a deployment with the same name", func() {
+	When("it reconciles a service which would manage a core v1.service with the same name", func() {
 		serviceName := fmt.Sprintf("service-%s", randStringRunes(5))
 		var service *v1beta1.RateLimitService
+
+		It("creates a new existing unmanaged core v1.service", func() {
+			ctx := context.Background()
+			svc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("ratelimit-%s", serviceName),
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{
+						"x": "foo",
+					},
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(8080),
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, svc)).Should(Succeed())
+		})
 
 		It("creates a new service", func() {
 			ctx := context.Background()
@@ -552,6 +576,36 @@ descriptors:
 			}
 			Expect(k8sClient.Create(ctx, service)).Should(Succeed())
 		})
+
+		It("fails to reconcile", func() {
+			ctx := context.Background()
+			instanceLookupKey := types.NamespacedName{Name: serviceName, Namespace: "default"}
+			reconciledInstance := &v1beta1.RateLimitService{}
+
+			expectedStatus := &v1beta1.RateLimitServiceStatus{
+				ObservedGeneration: 1,
+				Conditions: []metav1.Condition{
+					{
+						Type:    v1beta1.ConditionReady,
+						Status:  metav1.ConditionFalse,
+						Reason:  "ReconciliationFailed",
+						Message: fmt.Sprintf("can not take ownership of existing resource: ratelimit-%s", serviceName),
+					},
+				},
+			}
+			eventuallyMatchExactConditions(ctx, instanceLookupKey, reconciledInstance, expectedStatus)
+			Expect(len(reconciledInstance.Status.SubResourceCatalog)).Should(Equal(0))
+		})
+
+		It("cleans up", func() {
+			ctx := context.Background()
+			Expect(k8sClient.Delete(ctx, service)).Should(Succeed())
+		})
+	})
+
+	When("it reconciles a service which would manage a deployment with the same name", func() {
+		serviceName := fmt.Sprintf("service-%s", randStringRunes(5))
+		var service *v1beta1.RateLimitService
 
 		It("creates a new existing unmanaged deployment", func() {
 			ctx := context.Background()
@@ -586,6 +640,19 @@ descriptors:
 			Expect(k8sClient.Create(ctx, deployment)).Should(Succeed())
 		})
 
+		It("creates a new service", func() {
+			ctx := context.Background()
+
+			service = &v1beta1.RateLimitService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: "default",
+				},
+				Spec: v1beta1.RateLimitServiceSpec{},
+			}
+			Expect(k8sClient.Create(ctx, service)).Should(Succeed())
+		})
+
 		It("fails to reconcile", func() {
 			ctx := context.Background()
 			instanceLookupKey := types.NamespacedName{Name: serviceName, Namespace: "default"}
@@ -598,7 +665,7 @@ descriptors:
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "ReconciliationFailed",
-						Message: fmt.Sprintf("can not take ownership of existing deployment: ratelimit-%s", serviceName),
+						Message: fmt.Sprintf("can not take ownership of existing resource: ratelimit-%s", serviceName),
 					},
 				},
 			}
