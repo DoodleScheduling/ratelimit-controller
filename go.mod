@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/fluxcd/pkg/runtime v0.80.0
-	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/logr v1.4.4
 	github.com/goccy/go-yaml v1.19.2
 	github.com/kylelemons/godebug v1.1.0
 	github.com/onsi/ginkgo/v2 v2.32.0
