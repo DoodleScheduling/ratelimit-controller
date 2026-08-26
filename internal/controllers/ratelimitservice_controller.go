@@ -29,10 +29,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,7 +60,7 @@ type RateLimitServiceReconciler struct {
 	client.Client
 	Log      logr.Logger
 	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Recorder events.EventRecorder
 }
 
 type RateLimitServiceReconcilerOptions struct {
@@ -176,7 +177,7 @@ func (r *RateLimitServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
 		service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		r.Recorder.Event(&service, "Normal", "error", err.Error())
+		r.Recorder.Eventf(&service, nil, "Normal", "error", err.Error(), "")
 	}
 
 	// Update status after reconciliation.
@@ -575,16 +576,21 @@ func (r *RateLimitServiceReconciler) createOrUpdateWithOwnershipValidation(ctx c
 		}
 
 		obj.GetObjectKind().SetGroupVersionKind(existing.GetObjectKind().GroupVersionKind())
-		err := r.Patch(
+
+		content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		if err != nil {
+			return fmt.Errorf("can not convert resource to unstructured: %w", err)
+		}
+
+		err = r.Apply(
 			ctx,
-			obj,
-			client.Apply,
+			client.ApplyConfigurationFromUnstructured(&unstructured.Unstructured{Object: content}),
 			client.FieldOwner("ratelimit-controller"),
 			client.ForceOwnership,
 		)
 
 		if err != nil {
-			return fmt.Errorf("can not patch resource: %w", err)
+			return fmt.Errorf("can not apply resource: %w", err)
 		}
 	}
 

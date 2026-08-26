@@ -47,7 +47,7 @@ type RateLimitServiceList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&RateLimitService{}, &RateLimitServiceList{})
+	objectTypes = append(objectTypes, &RateLimitService{}, &RateLimitServiceList{})
 }
 
 // RateLimitServiceSpec defines the desired state of RateLimitService
