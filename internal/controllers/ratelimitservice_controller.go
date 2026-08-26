@@ -177,7 +177,7 @@ func (r *RateLimitServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
 		service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		r.Recorder.Eventf(&service, nil, "Normal", "error", err.Error(), "")
+		r.Recorder.Eventf(&service, nil, "Normal", "error", "", err.Error())
 	}
 
 	// Update status after reconciliation.
