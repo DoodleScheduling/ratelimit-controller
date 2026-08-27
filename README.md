@@ -2,7 +2,6 @@
 
 [![release](https://img.shields.io/github/release/DoodleScheduling/ratelimit-controller/all.svg)](https://github.com/DoodleScheduling/ratelimit-controller/releases)
 [![release](https://github.com/doodlescheduling/ratelimit-controller/actions/workflows/release.yaml/badge.svg)](https://github.com/doodlescheduling/ratelimit-controller/actions/workflows/release.yaml)
-[![report](https://goreportcard.com/badge/github.com/DoodleScheduling/ratelimit-controller)](https://goreportcard.com/report/github.com/DoodleScheduling/ratelimit-controller)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/DoodleScheduling/ratelimit-controller/badge)](https://api.securityscorecards.dev/projects/github.com/DoodleScheduling/ratelimit-controller)
 [![Coverage Status](https://coveralls.io/repos/github/DoodleScheduling/ratelimit-controller/badge.svg?branch=master)](https://coveralls.io/github/DoodleScheduling/ratelimit-controller?branch=master)
 [![license](https://img.shields.io/github/license/DoodleScheduling/ratelimit-controller.svg)](https://github.com/DoodleScheduling/ratelimit-controller/blob/master/LICENSE)
