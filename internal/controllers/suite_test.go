@@ -81,7 +81,7 @@ var _ = BeforeSuite(func() {
 		Client:   k8sManager.GetClient(),
 		Log:      ctrl.Log.WithName("controllers").WithName("RateLimitService"),
 		Scheme:   k8sManager.GetScheme(),
-		Recorder: k8sManager.GetEventRecorderFor("RateLimitService"),
+		Recorder: k8sManager.GetEventRecorder("RateLimitService"),
 	}).SetupWithManager(k8sManager, RateLimitServiceReconcilerOptions{MaxConcurrentReconciles: 10})
 	Expect(err).ToNot(HaveOccurred(), "failed to setup RateLimitService")
 

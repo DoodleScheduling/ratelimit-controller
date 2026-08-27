@@ -155,7 +155,7 @@ func main() {
 		Client:   mgr.GetClient(),
 		Log:      ctrl.Log.WithName("controllers").WithName("RateLimitService"),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("RateLimitService"),
+		Recorder: mgr.GetEventRecorder("RateLimitService"),
 	}
 
 	if err = hubReconciler.SetupWithManager(mgr, controllers.RateLimitServiceReconcilerOptions{

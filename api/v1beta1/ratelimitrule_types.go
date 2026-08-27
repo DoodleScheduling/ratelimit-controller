@@ -22,7 +22,7 @@ type RateLimitRuleList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&RateLimitRule{}, &RateLimitRuleList{})
+	objectTypes = append(objectTypes, &RateLimitRule{}, &RateLimitRuleList{})
 }
 
 // RateLimitRuleSpec defines the desired state of RateLimitRule.
