@@ -58,6 +58,10 @@ type RateLimitServiceSpec struct {
 	// +optional
 	Suspend bool `json:"suspend,omitempty"`
 
+	// Wait for at least one pod to become healthy
+	// +optional
+	Wait bool `json:"wait,omitempty"`
+
 	// DescriptorSelector defines a selector to select ratelimit rules associated with this service
 	RuleSelector *metav1.LabelSelector `json:"ruleSelector,omitempty"`
 
@@ -153,14 +157,19 @@ type ResourceReference struct {
 	APIVersion string `json:"apiVersion,omitempty"`
 }
 
-func RateLimitServiceReconciling(realm RateLimitService, status metav1.ConditionStatus, reason, message string) RateLimitService {
-	setResourceCondition(&realm, ConditionReconciling, status, reason, message, realm.Generation)
-	return realm
+func RateLimitServiceReconciling(service RateLimitService, status metav1.ConditionStatus, reason, message string) RateLimitService {
+	setResourceCondition(&service, ConditionReconciling, status, reason, message, service.Generation)
+	return service
 }
 
-func RateLimitServiceReady(realm RateLimitService, status metav1.ConditionStatus, reason, message string) RateLimitService {
-	setResourceCondition(&realm, ConditionReady, status, reason, message, realm.Generation)
-	return realm
+func RateLimitServiceReady(service RateLimitService, status metav1.ConditionStatus, reason, message string) RateLimitService {
+	setResourceCondition(&service, ConditionReady, status, reason, message, service.Generation)
+	return service
+}
+
+func RateLimitServiceHealthy(hub RateLimitService, status metav1.ConditionStatus, reason, message string) RateLimitService {
+	setResourceCondition(&hub, ConditionHealthy, status, reason, message, hub.Generation)
+	return hub
 }
 
 // GetStatusConditions returns a pointer to the Status.Conditions slice

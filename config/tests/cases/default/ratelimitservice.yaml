@@ -3,6 +3,7 @@ kind: RateLimitService
 metadata: 
   name: ratelimit
 spec:
+  wait: true
   ruleSelector: {}
   deploymentTemplate:
     spec:

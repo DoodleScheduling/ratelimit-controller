@@ -8,7 +8,7 @@ import (
 const (
 	ConditionReady       = "Ready"
 	ConditionReconciling = "Reconciling"
-	ReadyCondition       = "Ready"
+	ConditionHealthy     = "Healthy"
 )
 
 // ConditionalResource is a resource with conditions

@@ -434,6 +434,102 @@ descriptors:
 		})
 	})
 
+	When("it reconciles a ratelimitservice which has health checks enabled", func() {
+		serviceName := fmt.Sprintf("service-%s", randStringRunes(5))
+		var service *v1beta1.RateLimitService
+
+		It("creates a new ratelimitservice", func() {
+			ctx := context.Background()
+
+			service = &v1beta1.RateLimitService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: "default",
+				},
+				Spec: v1beta1.RateLimitServiceSpec{
+					Wait: true,
+				},
+			}
+			Expect(k8sClient.Create(ctx, service)).Should(Succeed())
+		})
+
+		It("should update the ratelimitservice status to in progress", func() {
+			ctx := context.Background()
+			instanceLookupKey := types.NamespacedName{Name: serviceName, Namespace: "default"}
+			reconciledInstance := &v1beta1.RateLimitService{}
+
+			expectedStatus := &v1beta1.RateLimitServiceStatus{
+				ObservedGeneration: 1,
+				Conditions: []metav1.Condition{
+					{
+						Type:    v1beta1.ConditionReady,
+						Status:  metav1.ConditionFalse,
+						Reason:  "ReconciliationFailed",
+						Message: "health check failed; no endpoint is ready",
+					},
+					{
+						Type:    v1beta1.ConditionReconciling,
+						Status:  metav1.ConditionTrue,
+						Reason:  "Progressing",
+						Message: "",
+					},
+					{
+						Type:    v1beta1.ConditionHealthy,
+						Status:  metav1.ConditionFalse,
+						Reason:  "NoEndpointReady",
+						Message: "health check failed; no endpoint is ready",
+					},
+				},
+			}
+			eventuallyMatchExactConditions(ctx, instanceLookupKey, reconciledInstance, expectedStatus)
+			Expect(len(reconciledInstance.Status.SubResourceCatalog)).Should(Equal(0))
+		})
+
+		It("updates the available replicas", func() {
+			ctx := context.Background()
+			var app appsv1.Deployment
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("ratelimit-%s", serviceName), Namespace: "default"}, &app)
+			}, timeout, interval).Should(BeNil())
+
+			app.Status.AvailableReplicas = 3
+			app.Status.Replicas = 3
+			app.Status.ReadyReplicas = 3
+			Expect(k8sClient.Status().Update(ctx, &app)).Should(Succeed())
+		})
+
+		It("should update the ratelimitservice status successfully reconciled with a healthy condition", func() {
+			ctx := context.Background()
+			instanceLookupKey := types.NamespacedName{Name: serviceName, Namespace: "default"}
+			reconciledInstance := &v1beta1.RateLimitService{}
+
+			expectedStatus := &v1beta1.RateLimitServiceStatus{
+				ObservedGeneration: 1,
+				Conditions: []metav1.Condition{
+					{
+						Type:    v1beta1.ConditionReady,
+						Status:  metav1.ConditionTrue,
+						Reason:  "ReconciliationSuccessful",
+						Message: fmt.Sprintf("deployment/ratelimit-%s created", serviceName),
+					},
+					{
+						Type:    v1beta1.ConditionHealthy,
+						Status:  metav1.ConditionTrue,
+						Reason:  "EndpointReady",
+						Message: "health check passed; at least one endpoint is ready",
+					},
+				},
+			}
+			eventuallyMatchExactConditions(ctx, instanceLookupKey, reconciledInstance, expectedStatus)
+			Expect(len(reconciledInstance.Status.SubResourceCatalog)).Should(Equal(0))
+		})
+
+		It("cleans up", func() {
+			ctx := context.Background()
+			Expect(k8sClient.Delete(ctx, service)).Should(Succeed())
+		})
+	})
+
 	When("it reconciles a service with rules which have duplicate descriptor trees", func() {
 		serviceName := fmt.Sprintf("service-%s", randStringRunes(5))
 		spec1Name := fmt.Sprintf("spec-b-%s", randStringRunes(5))

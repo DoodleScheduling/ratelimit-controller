@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/go-logr/logr"
 	"github.com/goccy/go-yaml"
 	appsv1 "k8s.io/api/apps/v1"
@@ -53,6 +54,7 @@ import (
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;watch;list
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;delete;watch;list
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // RateLimitService reconciles a RateLimitService object
@@ -177,7 +179,7 @@ func (r *RateLimitServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
 		service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		r.Recorder.Eventf(&service, nil, corev1.EventTypeNormal, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
+		r.Recorder.Eventf(&service, nil, corev1.EventTypeWarning, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
 	}
 
 	// Update status after reconciliation.
@@ -308,6 +310,12 @@ func isOwner(owner, owned metav1.Object) bool {
 }
 
 func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infrav1beta1.RateLimitService) (infrav1beta1.RateLimitService, ctrl.Result, error) {
+	if service.Spec.Wait {
+		//TODO this makes only sense if there is some sort of timeout of waiting til a pod is ready, otherwise we transition directly into False anyway
+		//hub = infrav1beta1.RateLimitService(service, metav1.ConditionUnknown, "Progressing", "Reconciliation in progress")
+		service = infrav1beta1.RateLimitServiceReconciling(service, metav1.ConditionTrue, "Progressing", "")
+	}
+
 	service.Status.SubResourceCatalog = []infrav1beta1.ResourceReference{}
 	service, rules, err := r.extendserviceWithRateLimitRules(ctx, service)
 	if err != nil {
@@ -551,6 +559,28 @@ func (r *RateLimitServiceReconciler) reconcile(ctx context.Context, service infr
 		return service, ctrl.Result{}, err
 	}
 
+	if service.Spec.Wait {
+		var app appsv1.Deployment
+		if err := r.Get(ctx, client.ObjectKey{
+			Name:      fmt.Sprintf("ratelimit-%s", service.Name),
+			Namespace: service.Namespace,
+		}, &app); err != nil {
+			return service, ctrl.Result{}, err
+		}
+
+		if app.Status.ReadyReplicas == 0 {
+			service = infrav1beta1.RateLimitServiceHealthy(service, metav1.ConditionFalse, "NoEndpointReady", "health check failed; no endpoint is ready")
+			service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionFalse, "ReconciliationFailed", "health check failed; no endpoint is ready")
+			r.Recorder.Eventf(&service, nil, corev1.EventTypeNormal, "Error", "HealthCheck", "health check failed; no endpoint is ready")
+			return service, ctrl.Result{}, nil
+		}
+
+		service = infrav1beta1.RateLimitServiceHealthy(service, metav1.ConditionTrue, "EndpointReady", "health check passed; at least one endpoint is ready")
+	} else {
+		conditions.Delete(&service, infrav1beta1.ConditionHealthy)
+	}
+
+	conditions.Delete(&service, infrav1beta1.ConditionReconciling)
 	service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionTrue, "ReconciliationSuccessful", fmt.Sprintf("deployment/%s created", deploymentTemplate.Name))
 	return service, ctrl.Result{}, nil
 }

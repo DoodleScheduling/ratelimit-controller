@@ -8888,6 +8888,9 @@ spec:
               suspend:
                 description: Suspend reconciliation
                 type: boolean
+              wait:
+                description: Wait for at least one pod to become healthy
+                type: boolean
             type: object
           status:
             description: RateLimitServiceStatus defines the observed state of RateLimitService
