@@ -25,6 +25,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -35,13 +43,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - events.k8s.io
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
 - apiGroups:
   - ratelimit.infra.doodle.com
   resources:

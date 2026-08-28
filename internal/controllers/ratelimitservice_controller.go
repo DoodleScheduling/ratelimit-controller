@@ -55,6 +55,7 @@ import (
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;delete;watch;list
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // RateLimitService reconciles a RateLimitService object
 type RateLimitServiceReconciler struct {
@@ -178,7 +179,7 @@ func (r *RateLimitServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		logger.Error(err, "reconcile error occurred")
 		service = infrav1beta1.RateLimitServiceReady(service, metav1.ConditionFalse, "ReconciliationFailed", err.Error())
-		r.Recorder.Eventf(&service, nil, corev1.EventTypeNormal, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
+		r.Recorder.Eventf(&service, nil, corev1.EventTypeWarning, "Error", "Reconcile", "failed to reconcile: %s", err.Error())
 	}
 
 	// Update status after reconciliation.
