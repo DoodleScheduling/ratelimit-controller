@@ -206,6 +206,7 @@ type YamlRateLimit struct {
 type YamlDescriptor struct {
 	Key            string
 	Value          string            `yaml:"value,omitempty"`
+	ShareThreshold bool              `yaml:"share_threshold,omitempty"`
 	RateLimit      *YamlRateLimit    `yaml:"rate_limit,omitempty"`
 	Descriptors    []*YamlDescriptor `yaml:"descriptors,omitempty"`
 	ShadowMode     bool              `yaml:"shadow_mode,omitempty"`
@@ -267,6 +268,7 @@ func (r *RateLimitServiceReconciler) rulesToDescriptorSet(service infrav1beta1.R
 			}
 		}
 
+		lastDescriptor.ShareThreshold = rule.Spec.ShareThreshold
 		lastDescriptor.DetailedMetric = rule.Spec.DetailedMetric
 		lastDescriptor.ShadowMode = rule.Spec.ShadowMode
 		lastDescriptor.RateLimit = &YamlRateLimit{

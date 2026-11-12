@@ -36,6 +36,7 @@ type RateLimitRuleSpec struct {
 	Descriptors     []Descriptor                      `json:"descriptors"`
 	ShadowMode      bool                              `json:"shadowMode,omitempty"`
 	DetailedMetric  bool                              `json:"detailedMetric,omitempty"`
+	ShareThreshold  bool                              `json:"shareThreshold,omitempty"`
 }
 
 type Descriptor struct {

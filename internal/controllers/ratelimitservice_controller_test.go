@@ -373,6 +373,7 @@ descriptors:
 				RequestsPerUnit: 2,
 				ShadowMode:      true,
 				DetailedMetric:  true,
+				ShareThreshold:  true,
 				Descriptors: []v1beta1.Descriptor{
 					{
 						Key:   "level-1",
@@ -380,7 +381,7 @@ descriptors:
 					},
 					{
 						Key:   "level-2",
-						Value: "value-2",
+						Value: "value-*",
 					},
 				},
 			}
@@ -403,7 +404,8 @@ descriptors:
       unit: minute
       name: %s.default
   - key: level-2
-    value: value-2
+    value: value-*
+    share_threshold: true
     rate_limit:
       requests_per_unit: 2
       unit: hour
